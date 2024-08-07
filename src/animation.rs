@@ -66,6 +66,7 @@ pub struct Animation {
     pub playing: bool,
     pub repeat: AnimationRepeat,
     pub direction: AnimationDirection,
+    pub time_unit: TimeUnit,
     pub queue: VecDeque<(String, AnimationRepeat)>,
 }
 
@@ -77,6 +78,7 @@ impl Default for Animation {
             playing: false,
             repeat: AnimationRepeat::Loop,
             direction: AnimationDirection::Forward,
+            time_unit: TimeUnit::Milliseconds,
             queue: VecDeque::new(),
         }
     }
@@ -113,6 +115,11 @@ impl Animation {
         self
     }
 
+    pub fn with_time_unit(mut self, time_unit: TimeUnit) -> Self {
+        self.time_unit = time_unit;
+        self
+    }
+
     /// instanly starts playing a new animation, clearing any item left in the queue.
     pub fn play(&mut self, tag: &str, repeat: AnimationRepeat) {
         self.tag = Some(tag.to_string());
@@ -145,6 +152,7 @@ impl From<&str> for Animation {
 pub struct AnimationState {
     current_frame: usize,
     elapsed: std::time::Duration,
+    elapsed_frames: u16,
     current_direction: PlayDirection,
 }
 
@@ -174,6 +182,13 @@ pub enum AnimationDirection {
     Reverse,
     PingPong,
     PingPongReverse,
+}
+
+#[derive(Default, Reflect)]
+pub enum TimeUnit {
+    #[default]
+    Milliseconds,
+    Frames,
 }
 
 impl From<RawDirection> for AnimationDirection {
@@ -240,7 +255,9 @@ fn insert_aseprite_animation(
             );
 
             state.current_frame = start_frame_index;
+
             state.elapsed = std::time::Duration::ZERO;
+            state.elapsed_frames = 0;
             control.playing = true;
 
             if let Some(tag) = maybe_tag {
@@ -310,39 +327,78 @@ fn update_aseprite_animation(
                 .map(|tag| usize::from(*tag.range.start())..usize::from(tag.range.end() + 1))
                 .unwrap_or(0..aseprite.frame_durations.len());
 
-            state.elapsed +=
-                std::time::Duration::from_secs_f32(time.delta_seconds() * animation.speed);
+            match animation.time_unit {
+                TimeUnit::Milliseconds => {
+                    state.elapsed +=
+                        std::time::Duration::from_secs_f32(time.delta_seconds() * animation.speed);
 
-            let Some(frame_time) = aseprite.frame_durations.get(state.current_frame) else {
-                return;
-            };
-
-            let atlas_frame_index = aseprite.get_atlas_index(state.current_frame);
-            atlas_comp.index = atlas_frame_index;
-
-            if state.elapsed > *frame_time {
-                match next_frame(&mut state, &mut animation, &animation_range) {
-                    Some(FrameTransition::AnimationFinished) => {
-                        // mut just because of this? @fix someday
-                        match animation.queue.pop_front() {
-                            Some((tag, repeat)) => {
-                                animation.tag = Some(tag);
-                                animation.repeat = repeat;
-                            }
-                            None => {
-                                animation.playing = false;
-                                events.send(AnimationEvents::Finished(entity));
-                            }
-                        }
+                    let Some(frame_time) = aseprite.frame_durations.get(state.current_frame) else {
                         return;
-                    }
-                    Some(FrameTransition::AnimationLoopFinished) => {
-                        events.send(AnimationEvents::LoopCycleFinished(entity));
-                    }
-                    None => {}
-                }
+                    };
 
-                state.elapsed = std::time::Duration::ZERO;
+                    let atlas_frame_index = aseprite.get_atlas_index(state.current_frame);
+                    atlas_comp.index = atlas_frame_index;
+                    if state.elapsed > *frame_time {
+                        match next_frame(&mut state, &mut animation, &animation_range) {
+                            Some(FrameTransition::AnimationFinished) => {
+                                // mut just because of this? @fix someday
+                                match animation.queue.pop_front() {
+                                    Some((tag, repeat)) => {
+                                        animation.tag = Some(tag);
+                                        animation.repeat = repeat;
+                                    }
+                                    None => {
+                                        animation.playing = false;
+                                        events.send(AnimationEvents::Finished(entity));
+                                    }
+                                }
+                                return;
+                            }
+                            Some(FrameTransition::AnimationLoopFinished) => {
+                                events.send(AnimationEvents::LoopCycleFinished(entity));
+                            }
+                            None => {}
+                        }
+
+                        state.elapsed = std::time::Duration::ZERO;
+                    }
+                }
+                TimeUnit::Frames => {
+                    state.elapsed_frames += 1;
+
+                    let Some(frame_time2) = aseprite.frame_durations2.get(state.current_frame)
+                    else {
+                        return;
+                    };
+
+                    let atlas_frame_index = aseprite.get_atlas_index(state.current_frame);
+                    atlas_comp.index = atlas_frame_index;
+
+                    if state.elapsed_frames >= *frame_time2 {
+                        match next_frame(&mut state, &mut animation, &animation_range) {
+                            Some(FrameTransition::AnimationFinished) => {
+                                // mut just because of this? @fix someday
+                                match animation.queue.pop_front() {
+                                    Some((tag, repeat)) => {
+                                        animation.tag = Some(tag);
+                                        animation.repeat = repeat;
+                                    }
+                                    None => {
+                                        animation.playing = false;
+                                        events.send(AnimationEvents::Finished(entity));
+                                    }
+                                }
+                                return;
+                            }
+                            Some(FrameTransition::AnimationLoopFinished) => {
+                                events.send(AnimationEvents::LoopCycleFinished(entity));
+                            }
+                            None => {}
+                        }
+
+                        state.elapsed_frames = 0;
+                    }
+                }
             }
         },
     );

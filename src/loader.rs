@@ -34,6 +34,7 @@ pub struct Aseprite {
     pub slices: HashMap<String, SliceMeta>,
     pub tags: HashMap<String, TagMeta>,
     pub frame_durations: Vec<std::time::Duration>,
+    pub frame_durations2: Vec<u16>,
     pub atlas_layout: Handle<TextureAtlasLayout>,
     pub atlas_image: Handle<Image>,
     frame_indicies: Vec<usize>,
@@ -198,10 +199,17 @@ impl AssetLoader for AsepriteLoader {
                 .map(|frame| std::time::Duration::from_millis(u64::from(frame.duration)))
                 .collect();
 
+            let frame_durations2 = raw
+                .frames()
+                .iter()
+                .map(|frame| frame.duration / 16)
+                .collect::<Vec<u16>>();
+
             Ok(Aseprite {
                 slices,
                 tags,
                 frame_durations,
+                frame_durations2,
                 atlas_layout,
                 atlas_image,
                 frame_indicies,
