@@ -30,7 +30,7 @@ impl Plugin for BevyAsepriteUltraPlugin {
 pub mod prelude {
     pub use crate::animation::{
         Animation, AnimationDirection, AnimationEvents, AnimationRepeat, AsepriteAnimationBundle,
-        AsepriteAnimationUiBundle, TimeUnit,
+        AsepriteAnimationUiBundle, TimeUnit, AnimationState,
     };
     pub use crate::loader::Aseprite;
     pub use crate::slice::{AsepriteSlice, AsepriteSliceBundle, AsepriteSliceUiBundle};

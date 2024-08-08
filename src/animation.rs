@@ -150,9 +150,9 @@ impl From<&str> for Animation {
 
 #[derive(Component, Default, Reflect)]
 pub struct AnimationState {
-    current_frame: usize,
+    pub current_frame: usize,
     elapsed: std::time::Duration,
-    elapsed_frames: u16,
+    pub elapsed_frames: u16,
     current_direction: PlayDirection,
 }
 
