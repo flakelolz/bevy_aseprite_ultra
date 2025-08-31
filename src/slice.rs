@@ -9,8 +9,8 @@ pub struct AsepriteSlicePlugin;
 
 impl Plugin for AsepriteSlicePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, render_slice::<ImageNode>);
-        app.add_systems(Update, render_slice::<Sprite>);
+        app.add_systems(PostUpdate, render_slice::<ImageNode>);
+        app.add_systems(PostUpdate, render_slice::<Sprite>);
         app.register_type::<AseSlice>();
     }
 }

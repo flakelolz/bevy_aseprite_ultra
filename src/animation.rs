@@ -10,8 +10,8 @@ impl Plugin for AsepriteAnimationPlugin {
         app.add_event::<NextFrameEvent>();
         app.add_systems(PostUpdate, update_aseprite_animation);
 
-        app.add_systems(Update, render_animation::<ImageNode>);
-        app.add_systems(Update, render_animation::<Sprite>);
+        app.add_systems(PostUpdate, render_animation::<ImageNode>);
+        app.add_systems(PostUpdate, render_animation::<Sprite>);
 
         app.add_observer(next_frame);
 
